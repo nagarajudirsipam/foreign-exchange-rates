@@ -19,3 +19,10 @@ Run the project using below command
 ```bash
 mvn spring-boot:run
 ```
+
+APIs
+
+```bash
+http://localhost:8080/api/v1/fx(?targetCurrency=<currencyName>)
+http://localhost:8080/api/v1/fx/{targetCurrency}
+```
