@@ -26,3 +26,5 @@ APIs
 http://localhost:8080/api/v1/fx(?targetCurrency=<currencyName>)
 http://localhost:8080/api/v1/fx/{targetCurrency}
 ```
+
+Added code to have simple in-memory cache in fx APIs to skip calls if the data is available for same request params without any TTL. 
