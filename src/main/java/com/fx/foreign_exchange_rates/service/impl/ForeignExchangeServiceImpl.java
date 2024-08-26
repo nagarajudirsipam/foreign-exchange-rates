@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -30,29 +31,29 @@ public class ForeignExchangeServiceImpl implements ForeignExchangeService {
     @Value("${foreign-exchange-api.url}")
     private String foreignExchangeBaseURL;
 
+    @Cacheable(value = "latest-fx", key = "{#sourceCurrency, #currDate, #targetCurrency}")
     @Override
-    public List<ExchangeCurrency> getExchangeRates(String targetCurrency) {
-        ExchangeCurrencyResponse exchangeCurrencyResponse = restTemplate.getForObject(getFXUrl(targetCurrency), ExchangeCurrencyResponse.class);
+    public List<ExchangeCurrency> getExchangeRates(String sourceCurrency, LocalDate currDate, String targetCurrency) {
+        ExchangeCurrencyResponse exchangeCurrencyResponse = restTemplate.getForObject(getFXUrl(sourceCurrency, currDate, targetCurrency), ExchangeCurrencyResponse.class);
         List<ExchangeCurrency> exchangeCurrencies = exchangeCurrencyResponse.getExchangeCurrencies();
         foreignExchangeRepository.saveAll(exchangeCurrencies);
         return exchangeCurrencies;
     }
 
+    @Cacheable(value = "history-fx", key = "{#sourceCurrency, #currDate, #targetCurrency}")
     @Override
-    public ExchangeCurrencyTimeSeriesResponse getExchangeRatesInTimeSeries(String targetCurrency) {
-        return restTemplate.getForObject(getFXUrlForTimeSeries(targetCurrency), ExchangeCurrencyTimeSeriesResponse.class);
+    public ExchangeCurrencyTimeSeriesResponse getExchangeRatesInTimeSeries(String sourceCurrency, LocalDate pastDate, String targetCurrency) {
+        return restTemplate.getForObject(getFXUrlForTimeSeries(sourceCurrency, pastDate, targetCurrency), ExchangeCurrencyTimeSeriesResponse.class);
     }
 
-    private String getFXUrl(String targetCurrency){
+    private String getFXUrl(String sourceCurrency, LocalDate currDate, String targetCurrency){
         if(StringUtils.isNotEmpty(targetCurrency)){
-            return String.format("%s/latest?from=%s&to=%s", foreignExchangeBaseURL, CURRENCY.USD.name(), targetCurrency);
+            return String.format("%s/%s?from=%s&to=%s", foreignExchangeBaseURL, currDate, sourceCurrency, targetCurrency);
         }
-        return String.format("%s/latest?from=%s", foreignExchangeBaseURL, CURRENCY.USD.name());
+        return String.format("%s/%s?from=%s", foreignExchangeBaseURL, currDate, sourceCurrency);
     }
 
-    private String getFXUrlForTimeSeries(String targetCurrency){
-        LocalDate currDate = LocalDate.now();
-        LocalDate threeDaysInPast = currDate.minusDays(3);
-        return String.format("%s/%s..?from=%s&to=%s", foreignExchangeBaseURL, threeDaysInPast, CURRENCY.USD.name(), targetCurrency);
+    private String getFXUrlForTimeSeries(String sourceCurrency, LocalDate pastDate, String targetCurrency){
+        return String.format("%s/%s..?from=%s&to=%s", foreignExchangeBaseURL, pastDate, sourceCurrency, targetCurrency);
     }
 }
